@@ -10,15 +10,16 @@
 /* Architecture-specific hooks. */
 #ifdef S390_DFLTCC_INFLATE
 #  include "arch/s390/dfltcc_inflate.h"
+/* DFLTCC instructions require window to be page-aligned */
+#  define PAD_WINDOW            PAD_4096
+#  define WINDOW_PAD_SIZE       4096
+#  define HINT_ALIGNED_WINDOW   HINT_ALIGNED_4096
 #else
-/* Memory management for the inflate state. Useful for allocating arch-specific extension blocks. */
-#  define ZALLOC_INFLATE_STATE(strm) ((struct inflate_state *)ZALLOC(strm, 1, sizeof(struct inflate_state)))
-#  define ZFREE_STATE(strm, addr) ZFREE(strm, addr)
-#  define ZCOPY_INFLATE_STATE(dst, src) memcpy(dst, src, sizeof(struct inflate_state))
-/* Memory management for the window. Useful for allocation the aligned window. */
-#  define ZALLOC_WINDOW(strm, items, size) ZALLOC(strm, items, size)
-#  define ZCOPY_WINDOW(dest, src, n) memcpy(dest, src, n)
-#  define ZFREE_WINDOW(strm, addr) ZFREE(strm, addr)
+#  define PAD_WINDOW            PAD_64
+#  define WINDOW_PAD_SIZE       64
+#  define HINT_ALIGNED_WINDOW   HINT_ALIGNED_64
+/* Adjust the window size for the arch-specific inflate code. */
+#  define INFLATE_ADJUST_WINDOW_SIZE(n) (n)
 /* Invoked at the end of inflateResetKeep(). Useful for initializing arch-specific extension blocks. */
 #  define INFLATE_RESET_KEEP_HOOK(strm) do {} while (0)
 /* Invoked at the beginning of inflatePrime(). Useful for updating arch-specific buffers. */
@@ -173,25 +174,13 @@ static inline uint8_t* chunkcopy_safe(uint8_t *out, uint8_t *from, uint64_t len,
      * behind or lookahead distance. */
     uint64_t non_olap_size = llabs(from - out); // llabs vs labs for compatibility with windows
 
-    memcpy(out, from, (size_t)non_olap_size);
-    out += non_olap_size;
-    from += non_olap_size;
-    len -= non_olap_size;
-
     /* So this doesn't give use a worst case scenario of function calls in a loop,
      * we want to instead break this down into copy blocks of fixed lengths */
     while (len) {
         tocopy = MIN(non_olap_size, len);
         len -= tocopy;
 
-        while (tocopy >= 32) {
-            memcpy(out, from, 32);
-            out += 32;
-            from += 32;
-            tocopy -= 32;
-        }
-
-        if (tocopy >= 16) {
+        while (tocopy >= 16) {
             memcpy(out, from, 16);
             out += 16;
             from += 16;
@@ -212,14 +201,7 @@ static inline uint8_t* chunkcopy_safe(uint8_t *out, uint8_t *from, uint64_t len,
             tocopy -= 4;
         }
 
-        if (tocopy >= 2) {
-            memcpy(out, from, 2);
-            out += 2;
-            from += 2;
-            tocopy -= 2;
-        }
-
-        if (tocopy) {
+        while (tocopy--) {
             *out++ = *from++;
         }
     }

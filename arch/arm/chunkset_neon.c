@@ -9,8 +9,6 @@
 
 typedef uint8x16_t chunk_t;
 
-#define CHUNK_SIZE 16
-
 #define HAVE_CHUNKMEMSET_2
 #define HAVE_CHUNKMEMSET_4
 #define HAVE_CHUNKMEMSET_8
@@ -84,7 +82,9 @@ static inline chunk_t GET_CHUNK_MAG(uint8_t *buf, uint32_t *chunk_rem, uint32_t 
     a = vld1_u8(buf);
     b = vld1_u8(buf + 8);
     ret0 = vtbl1_u8(a, perm_vec0);
-    uint8x8x2_t ab = {{a, b}};
+    uint8x8x2_t ab;
+    ab.val[0] = a;
+    ab.val[1] = b;
     ret1 = vtbl2_u8(ab, perm_vec1);
     return vcombine_u8(ret0, ret1);
 #endif
