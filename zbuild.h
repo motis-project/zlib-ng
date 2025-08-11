@@ -70,6 +70,16 @@
 #  endif
 #endif
 
+/* A forced inline decorator */
+#if defined(_MSC_VER)
+#  define Z_FORCEINLINE __forceinline
+#elif defined(__GNUC__)
+#  define Z_FORCEINLINE inline __attribute__((always_inline))
+#else
+    /* It won't actually force inlining but it will suggest it */
+#  define Z_FORCEINLINE inline
+#endif
+
 /* MS Visual Studio does not allow inline in C, only C++.
    But it provides __inline instead, so use that. */
 #if defined(_MSC_VER) && !defined(inline) && !defined(__cplusplus)
@@ -200,6 +210,9 @@
 #  define ALIGNED_(x) __attribute__ ((aligned(x)))
 #elif defined(_MSC_VER)
 #  define ALIGNED_(x) __declspec(align(x))
+#else
+/* TODO: Define ALIGNED_ for your compiler */
+#  define ALIGNED_(x)
 #endif
 
 #ifdef HAVE_BUILTIN_ASSUME_ALIGNED
@@ -240,28 +253,41 @@
 #  define Tracecv(c, x)
 #endif
 
-#ifndef NO_UNALIGNED
+/* OPTIMAL_CMP values determine the comparison width:
+ * 64: Best for 64-bit architectures with unaligned access
+ * 32: Best for 32-bit architectures with unaligned access
+ * 16: Safe default for unknown architectures
+ * 8:  Safe fallback for architectures without unaligned access
+ * Note: The unaligned access mentioned is cpu-support, this allows compiler or
+ *       separate unaligned intrinsics to utilize safe unaligned access, without
+ *       utilizing unaligned C pointers that are known to have undefined behavior.
+ */
+#if !defined(OPTIMAL_CMP)
 #  if defined(__x86_64__) || defined(_M_X64) || defined(__amd64__) || defined(_M_AMD64)
-#    define UNALIGNED_OK
-#    define UNALIGNED64_OK
+#    define OPTIMAL_CMP 64
 #  elif defined(__i386__) || defined(__i486__) || defined(__i586__) || \
         defined(__i686__) || defined(_X86_) || defined(_M_IX86)
-#    define UNALIGNED_OK
+#    define OPTIMAL_CMP 32
 #  elif defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
-#    if (defined(__GNUC__) && defined(__ARM_FEATURE_UNALIGNED)) || !defined(__GNUC__)
-#      define UNALIGNED_OK
-#      define UNALIGNED64_OK
+#    if defined(__ARM_FEATURE_UNALIGNED) || defined(_WIN32)
+#      define OPTIMAL_CMP 64
+#    else
+#      define OPTIMAL_CMP 8
 #    endif
-#  elif defined(__arm__) || (_M_ARM >= 7)
-#    if (defined(__GNUC__) && defined(__ARM_FEATURE_UNALIGNED)) || !defined(__GNUC__)
-#      define UNALIGNED_OK
+#  elif defined(__arm__) || defined(_M_ARM)
+#    if defined(__ARM_FEATURE_UNALIGNED) || defined(_WIN32)
+#      define OPTIMAL_CMP 32
+#    else
+#      define OPTIMAL_CMP 8
 #    endif
 #  elif defined(__powerpc64__) || defined(__ppc64__)
-#    if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#      define UNALIGNED_OK
-#      define UNALIGNED64_OK
-#    endif
+#    define OPTIMAL_CMP 64
+#  elif defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+#    define OPTIMAL_CMP 32
 #  endif
+#endif
+#if !defined(OPTIMAL_CMP)
+#  define OPTIMAL_CMP 16
 #endif
 
 #if defined(__has_feature)

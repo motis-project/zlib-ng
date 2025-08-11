@@ -12,8 +12,6 @@ if(NOT DEFINED CMAKE_CXX_EXTENSIONS)
     set(CMAKE_CXX_EXTENSIONS ON)
 endif()
 
-enable_language(CXX)
-
 # Search for Google benchmark package
 find_package(benchmark QUIET)
 if(NOT benchmark_FOUND)
@@ -48,6 +46,7 @@ add_executable(benchmark_zlib
     benchmark_crc32.cc
     benchmark_main.cc
     benchmark_slidehash.cc
+    benchmark_uncompress.cc
     )
 
 target_compile_definitions(benchmark_zlib PRIVATE -DBENCHMARK_STATIC_DEFINE)
@@ -62,7 +61,7 @@ if(WIN32)
 endif()
 
 add_test(NAME benchmark_zlib
-    COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:benchmark_zlib>)
+    COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:benchmark_zlib> "--benchmark_min_time=0")
 
 if(WITH_BENCHMARK_APPS)
     option(BUILD_ALT_BENCH "Link against alternative zlib implementation" OFF)

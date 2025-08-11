@@ -55,6 +55,7 @@ public:
     void TearDown(const ::benchmark::State& state) {
         zng_free(l0);
         zng_free(l1);
+        free(s_g);
     }
 };
 
@@ -93,6 +94,12 @@ BENCHMARK_SLIDEHASH(sse2, slide_hash_sse2, test_cpu_features.x86.has_sse2);
 #endif
 #ifdef X86_AVX2
 BENCHMARK_SLIDEHASH(avx2, slide_hash_avx2, test_cpu_features.x86.has_avx2);
+#endif
+#ifdef LOONGARCH_LSX
+BENCHMARK_SLIDEHASH(lsx, slide_hash_lsx, test_cpu_features.loongarch.has_lsx);
+#endif
+#ifdef LOONGARCH_LASX
+BENCHMARK_SLIDEHASH(lasx, slide_hash_lasx, test_cpu_features.loongarch.has_lasx);
 #endif
 
 #endif
